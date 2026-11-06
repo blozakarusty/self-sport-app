@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5173"],
+      "port": 5173
+    },
+    {
+      "name": "demo",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["DATABASE_URL=/private/tmp/claude-501/-Users-maximvanaert--claude-spares-spare-ScXXgL/3d83c19e-f862-4909-8a57-1cafd86c8c93/scratchpad/demo.db", "SYNC_INTERVAL_MINUTES=0", "npm", "run", "dev", "--", "--port", "5199"],
+      "port": 5199
+    }
+  ]
+}
