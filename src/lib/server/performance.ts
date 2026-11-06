@@ -106,6 +106,29 @@ export function weeklyVdot(efforts: Effort[], today: string, weeks: number) {
 	return vdotHistory(efforts, ends);
 }
 
+/**
+ * Training paces (s/km) for the planner, from your current VDOT and overrides.
+ * Without any estimate yet, falls back to `fallbackVdot` (e.g. the goal's).
+ */
+export function paceTableFor(a: Athlete, fallbackVdot: number, goalPace?: number) {
+	const today = athleteToday(a.id);
+	const value = estimateVdot(athleteEfforts(a.id), today)?.value ?? fallbackVdot;
+	const p = applyOverrides(trainingPaces(value), a.paceOverrides);
+	return {
+		vdot: value,
+		easyRange: p.easy.range ?? ([p.easy.value, p.easy.value] as [number, number]),
+		table: {
+			easy: p.easy.value,
+			marathon: p.marathon.value,
+			threshold: p.threshold.value,
+			interval: p.interval.value,
+			strides: p.repetition.value,
+			jog: p.easy.value * 1.1,
+			goal: goalPace
+		}
+	};
+}
+
 export function currentVdot(a: Athlete) {
 	const today = athleteToday(a.id);
 	const estimate = estimateVdot(toEfforts(effortRows(a.id), manualResults(a.id)), today);

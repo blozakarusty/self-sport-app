@@ -5,6 +5,8 @@ import { activityCount } from '#lib/server/sources/strava/index.ts';
 import { currentVdot } from '#lib/server/performance.ts';
 import { getGoalView } from '#lib/server/goals.ts';
 import { strengthThisWeek } from '#lib/server/strength.ts';
+import { getUpcoming, hasPlan, regeneratePlan } from '#lib/server/plan.ts';
+import { activeGoal } from '#lib/server/goals.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 function summarizeGoal(v: ReturnType<typeof getGoalView>) {
@@ -21,12 +23,20 @@ function summarizeGoal(v: ReturnType<typeof getGoalView>) {
 	};
 }
 
+function upcomingFor(a: NonNullable<App.Locals['athlete']>) {
+	const g = activeGoal(a.id);
+	if (!g) return null;
+	if (!hasPlan(a.id, g.id)) regeneratePlan(a);
+	return getUpcoming(a);
+}
+
 export const load: PageServerLoad = ({ locals, url }) => {
 	if (!locals.athlete) {
 		return {
 			dashboard: null,
 			vdot: null,
 			goal: null,
+			upcoming: null,
 			strengthWeek: null,
 			authError: url.searchParams.get('auth'),
 			missingScopes: url.searchParams.get('missing')
@@ -37,6 +47,7 @@ export const load: PageServerLoad = ({ locals, url }) => {
 		activityCount: activityCount(locals.athlete.id),
 		vdot: currentVdot(locals.athlete),
 		goal: summarizeGoal(getGoalView(locals.athlete)),
+		upcoming: upcomingFor(locals.athlete),
 		strengthWeek: strengthThisWeek(locals.athlete),
 		authError: null,
 		missingScopes: null

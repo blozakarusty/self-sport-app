@@ -4,6 +4,7 @@
 	import FitnessChart from '#lib/components/FitnessChart.svelte';
 	import ColumnChart from '#lib/components/ColumnChart.svelte';
 	import ProgressBar from '#lib/components/ProgressBar.svelte';
+	import SessionCard from '#lib/components/SessionCard.svelte';
 	import { dayLabel, paceStr, raceTime, relativeTime, shortDay } from '#lib/format.ts';
 	import type { PageProps } from './$types';
 
@@ -116,6 +117,30 @@
 			{/if}
 		</div>
 	</section>
+
+	{#if data.upcoming}
+		{@const u = data.upcoming}
+		<section class="card plan-today">
+			<div class="pt-head">
+				<h2>Today's plan</h2>
+				<a class="small" href="/plan">Full week →</a>
+			</div>
+			{#each u.today.sessions as s (s.id)}
+				<SessionCard {s} open={s.kind === 'run' || s.kind === 'strength'} />
+			{:else}
+				<p class="small muted">Rest day.</p>
+			{/each}
+			{#each u.today.unplanned as x (x.id)}
+				<p class="small muted">+ {x.name} ({x.sportType}, not in plan)</p>
+			{/each}
+			<h3 class="small secondary tomorrow">Tomorrow</h3>
+			{#each u.tomorrow.sessions.filter((s) => s.kind !== 'gtg') as s (s.id)}
+				<SessionCard {s} />
+			{:else}
+				<p class="small muted">Rest day.</p>
+			{/each}
+		</section>
+	{/if}
 
 	{#if data.goal}
 		{@const g = data.goal}
@@ -274,6 +299,22 @@
 		color: var(--ink);
 		text-decoration: none;
 		margin-bottom: 1rem;
+	}
+	.plan-today {
+		display: grid;
+		gap: 0.4rem;
+		margin-bottom: 1rem;
+	}
+	.pt-head {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+	}
+	.pt-head h2 {
+		margin: 0;
+	}
+	.tomorrow {
+		margin: 0.5rem 0 0;
 	}
 	.goal {
 		display: block;

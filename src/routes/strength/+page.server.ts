@@ -9,6 +9,9 @@ import {
 	type StrengthSplit
 } from '#lib/server/db/schema.ts';
 import { addBenchmarkFromLibrary, getStrength } from '#lib/server/strength.ts';
+import { regeneratePlan } from '#lib/server/plan.ts';
+import { workingWeight } from '#lib/server/db/schema.ts';
+import { BELLS, EXERCISES } from '#lib/server/engine/plan/strength.ts';
 import { benchmarkDef, suggestTarget } from '#lib/server/engine/strength/benchmarks.ts';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -41,6 +44,27 @@ function parseValue(raw: FormDataEntryValue | null, unit: string): number | null
 }
 
 export const actions: Actions = {
+	weights: async ({ locals, request }) => {
+		if (!locals.athlete) return fail(401);
+		const form = await request.formData();
+		for (const key of Object.keys(EXERCISES)) {
+			const raw = form.get(key);
+			if (raw == null) continue;
+			const kg = Number(raw);
+			if (!BELLS.includes(kg)) continue;
+			db.insert(workingWeight)
+				.values({ athleteId: locals.athlete.id, exercise: key, kg })
+				.onConflictDoUpdate({
+					target: [workingWeight.athleteId, workingWeight.exercise],
+					set: { kg, updatedAt: new Date() }
+				})
+				.run();
+		}
+		// rebuild upcoming sessions so they use the new weights
+		regeneratePlan(locals.athlete);
+		return { weightsSaved: true };
+	},
+
 	tag: async ({ locals, request }) => {
 		if (!locals.athlete) return fail(401);
 		const form = await request.formData();

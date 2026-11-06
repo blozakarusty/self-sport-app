@@ -210,6 +210,31 @@
 </section>
 
 <section class="card">
+	<h2>Working weights</h2>
+	<p class="small muted">
+		The bell you use for each exercise; the plan uses these. Go up one bell when you hit the top of
+		the rep range in every set. Saving rebuilds your upcoming sessions.
+	</p>
+	<form method="POST" action="?/weights" use:enhance={keep} class="weights">
+		{#each data.workingWeights as w (w.key)}
+			<label class="small">
+				<span
+					>{w.name}{#if w.loadNote}
+						<span class="muted">({w.loadNote})</span>{/if}</span
+				>
+				<select name={w.key} value={w.kg}>
+					{#each data.bells as b (b)}<option value={b}>{b} kg</option>{/each}
+				</select>
+			</label>
+		{/each}
+		<div>
+			<button class="small">Save weights</button>{#if form?.weightsSaved}
+				<span class="small secondary">Saved; plan updated.</span>{/if}
+		</div>
+	</form>
+</section>
+
+<section class="card">
 	<h2>Sessions</h2>
 	<p class="small muted">
 		Your strength sessions from Strava, last 12 weeks. Tag each as push, pull or legs and rate the
@@ -358,6 +383,18 @@
 		.s-info {
 			grid-column: 1 / -1;
 		}
+	}
+	.weights {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+		gap: 0.5rem 1rem;
+		align-items: end;
+	}
+	.weights label {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.5rem;
+		align-items: center;
 	}
 	.error {
 		color: var(--critical);

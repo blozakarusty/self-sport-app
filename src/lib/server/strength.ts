@@ -12,6 +12,8 @@ import {
 	weeklyTrend
 } from './engine/strength/benchmarks';
 import { activeGoal, goalTimeline } from './goals';
+import { BELLS, EXERCISES } from './engine/plan/strength';
+import { weightsFor } from './plan';
 
 /** Add the starter benchmarks the first time; afterwards you manage the list. */
 export function ensureStarterBenchmarks(athleteId: number) {
@@ -134,7 +136,20 @@ export function getStrength(a: Athlete) {
 			name: d.name,
 			category: d.category
 		})),
-		stravaWeightKg: a.weightKg
+		stravaWeightKg: a.weightKg,
+		bells: BELLS,
+		workingWeights: (() => {
+			const mine = weightsFor(a.id);
+			return Object.values(EXERCISES)
+				.filter((e) => e.defaultKg != null)
+				.map((e) => ({
+					key: e.key,
+					name: e.name,
+					loadNote: e.loadNote ?? null,
+					kg: mine[e.key] ?? e.defaultKg!,
+					custom: e.key in mine
+				}));
+		})()
 	};
 }
 

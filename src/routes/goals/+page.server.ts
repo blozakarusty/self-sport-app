@@ -4,6 +4,9 @@ import { db } from '#lib/server/db/index.ts';
 import { goal } from '#lib/server/db/schema.ts';
 import { athleteToday } from '#lib/server/dashboard.ts';
 import { activeGoal, getGoalView } from '#lib/server/goals.ts';
+import { regeneratePlan } from '#lib/server/plan.ts';
+import { planSession } from '#lib/server/db/schema.ts';
+import { gte } from 'drizzle-orm';
 import { athleteEfforts } from '#lib/server/performance.ts';
 import { estimateVdot } from '#lib/server/engine/performance/vdot.ts';
 import type { Actions, PageServerLoad } from './$types';
@@ -86,6 +89,7 @@ export const actions: Actions = {
 				.values({ ...parsed.values, athleteId: locals.athlete.id, startDate: today, startVdot })
 				.run();
 		}
+		regeneratePlan(locals.athlete);
 		return { saved: true };
 	},
 
@@ -94,6 +98,14 @@ export const actions: Actions = {
 		db.update(goal)
 			.set({ active: false })
 			.where(and(eq(goal.athleteId, locals.athlete.id), eq(goal.active, true)))
+			.run();
+		db.delete(planSession)
+			.where(
+				and(
+					eq(planSession.athleteId, locals.athlete.id),
+					gte(planSession.date, athleteToday(locals.athlete.id))
+				)
+			)
 			.run();
 		return { ended: true };
 	}

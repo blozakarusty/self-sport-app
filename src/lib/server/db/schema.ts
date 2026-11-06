@@ -28,8 +28,16 @@ export const athlete = sqliteTable('athlete', {
 	paceOverrides: text('pace_overrides', { mode: 'json' }).$type<PaceOverrides>(),
 	/** Heart rate used for the "pace at easy HR" trend; null = derived from zones. */
 	refHr: integer('ref_hr'),
+	/** Planner preferences: long-run day, optional extra run */
+	planPrefs: text('plan_prefs', { mode: 'json' }).$type<PlanPrefs>(),
 	...timestamps
 });
+
+export interface PlanPrefs {
+	longRunDay: 'sat' | 'sun';
+	/** Show an optional easy run on the free weekend day in build and peak */
+	optionalExtraRun: boolean;
+}
 
 export const STRENGTH_SPLITS = ['push', 'pull', 'legs', 'full'] as const;
 export type StrengthSplit = (typeof STRENGTH_SPLITS)[number];
@@ -195,6 +203,54 @@ export const benchmarkResult = sqliteTable(
 	(t) => [index('benchmark_result_idx').on(t.benchmarkId, t.date)]
 );
 
+/**
+ * One planned item on one day: a run, a strength session, grease-the-groove
+ * practice or a leisure block. `details` holds the structure (see engine/plan).
+ */
+export const planSession = sqliteTable(
+	'plan_session',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		athleteId: integer('athlete_id')
+			.notNull()
+			.references(() => athlete.id, { onDelete: 'cascade' }),
+		goalId: integer('goal_id')
+			.notNull()
+			.references(() => goal.id, { onDelete: 'cascade' }),
+		date: text('date').notNull(),
+		/** run | strength | gtg | leisure */
+		kind: text('kind').notNull(),
+		/** easy, long, quality, upper, legs, ... */
+		type: text('type').notNull(),
+		title: text('title').notNull(),
+		optional: integer('optional', { mode: 'boolean' }).notNull().default(false),
+		/** key sessions (quality, long) matter most for compliance */
+		key: integer('key', { mode: 'boolean' }).notNull().default(false),
+		details: text('details', { mode: 'json' }).notNull(),
+		phase: text('phase').notNull(),
+		week: integer('week').notNull(),
+		/** set when you moved it to another day; regeneration keeps it */
+		moved: integer('moved', { mode: 'boolean' }).notNull().default(false),
+		skipped: integer('skipped', { mode: 'boolean' }).notNull().default(false),
+		...timestamps
+	},
+	(t) => [index('plan_session_athlete_date_idx').on(t.athleteId, t.date)]
+);
+
+/** Your current working weight per strength exercise (kg). */
+export const workingWeight = sqliteTable(
+	'working_weight',
+	{
+		athleteId: integer('athlete_id')
+			.notNull()
+			.references(() => athlete.id, { onDelete: 'cascade' }),
+		exercise: text('exercise').notNull(),
+		kg: real('kg').notNull(),
+		...timestamps
+	},
+	(t) => [uniqueIndex('working_weight_idx').on(t.athleteId, t.exercise)]
+);
+
 export const syncState = sqliteTable('sync_state', {
 	athleteId: integer('athlete_id')
 		.primaryKey()
@@ -214,3 +270,4 @@ export type Performance = typeof performance.$inferSelect;
 export type Goal = typeof goal.$inferSelect;
 export type Benchmark = typeof benchmark.$inferSelect;
 export type BenchmarkResult = typeof benchmarkResult.$inferSelect;
+export type PlanSession = typeof planSession.$inferSelect;
