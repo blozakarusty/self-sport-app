@@ -24,8 +24,30 @@ export const athlete = sqliteTable('athlete', {
 	restHr: integer('rest_hr'),
 	/** Strava HR zones as [{min,max}] */
 	hrZones: text('hr_zones', { mode: 'json' }).$type<{ min: number; max: number }[]>(),
+	/** Manual training pace overrides in seconds per km, keyed by pace name. */
+	paceOverrides: text('pace_overrides', { mode: 'json' }).$type<PaceOverrides>(),
+	/** Heart rate used for the "pace at easy HR" trend; null = derived from zones. */
+	refHr: integer('ref_hr'),
 	...timestamps
 });
+
+export const STRENGTH_SPLITS = ['push', 'pull', 'legs', 'full'] as const;
+export type StrengthSplit = (typeof STRENGTH_SPLITS)[number];
+
+export type PaceName = 'easy' | 'marathon' | 'threshold' | 'interval' | 'repetition';
+export type PaceOverrides = Partial<Record<PaceName, number>>;
+
+export interface Split {
+	distance: number; // m
+	movingTime: number; // s
+	elapsedTime: number; // s
+	elevationDifference: number | null; // m
+	avgHr: number | null;
+}
+
+export interface Lap extends Split {
+	name: string;
+}
 
 export const stravaToken = sqliteTable('strava_token', {
 	athleteId: integer('athlete_id')
@@ -77,12 +99,100 @@ export const activity = sqliteTable(
 		workoutType: integer('workout_type'),
 		trainer: integer('trainer', { mode: 'boolean' }).notNull().default(false),
 		raw: text('raw', { mode: 'json' }),
+		/** Set once the detailed activity (splits, laps, best efforts) has been fetched. */
+		detailFetchedAt: integer('detail_fetched_at', { mode: 'timestamp' }),
+		splits: text('splits', { mode: 'json' }).$type<Split[]>(),
+		laps: text('laps', { mode: 'json' }).$type<Lap[]>(),
+		/** Your tags on strength sessions; kept across Strava re-syncs. */
+		strengthSplit: text('strength_split', { enum: STRENGTH_SPLITS }),
+		/** Session effort, 1–10; turns strength sessions into session-RPE load. */
+		rpe: integer('rpe'),
 		...timestamps
 	},
 	(t) => [
 		uniqueIndex('activity_source_idx').on(t.source, t.sourceId),
 		index('activity_athlete_start_idx').on(t.athleteId, t.startDate)
 	]
+);
+
+/** Fastest segments within a run (Strava "best efforts": 1k, 5k, half marathon, ...). */
+export const bestEffort = sqliteTable(
+	'best_effort',
+	{
+		id: text('id').primaryKey(), // `${source}:${effortId}`
+		activityId: text('activity_id')
+			.notNull()
+			.references(() => activity.id, { onDelete: 'cascade' }),
+		athleteId: integer('athlete_id')
+			.notNull()
+			.references(() => athlete.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(), // '5k', 'Half-Marathon', ...
+		distance: real('distance').notNull(), // m
+		elapsedTime: integer('elapsed_time').notNull(), // s
+		startDateLocal: text('start_date_local').notNull()
+	},
+	(t) => [index('best_effort_athlete_name_idx').on(t.athleteId, t.name)]
+);
+
+/** Race or time-trial results entered by hand; they take part in the fitness estimate. */
+export const performance = sqliteTable('performance', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	athleteId: integer('athlete_id')
+		.notNull()
+		.references(() => athlete.id, { onDelete: 'cascade' }),
+	date: text('date').notNull(), // YYYY-MM-DD
+	name: text('name').notNull(),
+	distance: real('distance').notNull(), // m
+	time: integer('time').notNull(), // s
+	...timestamps
+});
+
+/** A race you're training for. One active goal drives the phases and readiness view. */
+export const goal = sqliteTable('goal', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	athleteId: integer('athlete_id')
+		.notNull()
+		.references(() => athlete.id, { onDelete: 'cascade' }),
+	name: text('name').notNull(),
+	distance: real('distance').notNull(), // m
+	elevationGain: real('elevation_gain').notNull().default(0), // m
+	date: text('date').notNull(), // race day, YYYY-MM-DD
+	targetTime: integer('target_time').notNull(), // s
+	/** When training toward this goal began, and the VDOT at that moment */
+	startDate: text('start_date').notNull(),
+	startVdot: real('start_vdot'),
+	active: integer('active', { mode: 'boolean' }).notNull().default(true),
+	...timestamps
+});
+
+/** A repeatable test (max pull-ups, plank hold, body weight) with an optional target. */
+export const benchmark = sqliteTable('benchmark', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	athleteId: integer('athlete_id')
+		.notNull()
+		.references(() => athlete.id, { onDelete: 'cascade' }),
+	/** Library key for suggested benchmarks; null for your own */
+	key: text('key'),
+	name: text('name').notNull(),
+	category: text('category', { enum: ['push', 'pull', 'legs', 'core', 'body'] }).notNull(),
+	unit: text('unit').notNull(), // 'reps', 's', 'kg', ...
+	better: text('better', { enum: ['higher', 'lower'] }).notNull(),
+	target: real('target'),
+	...timestamps
+});
+
+export const benchmarkResult = sqliteTable(
+	'benchmark_result',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		benchmarkId: integer('benchmark_id')
+			.notNull()
+			.references(() => benchmark.id, { onDelete: 'cascade' }),
+		date: text('date').notNull(),
+		value: real('value').notNull(),
+		...timestamps
+	},
+	(t) => [index('benchmark_result_idx').on(t.benchmarkId, t.date)]
 );
 
 export const syncState = sqliteTable('sync_state', {
@@ -99,3 +209,8 @@ export const syncState = sqliteTable('sync_state', {
 export type Athlete = typeof athlete.$inferSelect;
 export type Activity = typeof activity.$inferSelect;
 export type NewActivity = typeof activity.$inferInsert;
+export type BestEffort = typeof bestEffort.$inferSelect;
+export type Performance = typeof performance.$inferSelect;
+export type Goal = typeof goal.$inferSelect;
+export type Benchmark = typeof benchmark.$inferSelect;
+export type BenchmarkResult = typeof benchmarkResult.$inferSelect;

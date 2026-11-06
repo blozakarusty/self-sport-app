@@ -12,6 +12,8 @@ export interface LoadInput {
 	sportType: string;
 	movingTime: number; // seconds
 	avgHr: number | null;
+	/** Session effort 1–10, when you've rated it */
+	rpe?: number | null;
 }
 
 export interface HrProfile {
@@ -19,7 +21,7 @@ export interface HrProfile {
 	restHr: number;
 }
 
-export type LoadMethod = 'trimp' | 'estimate';
+export type LoadMethod = 'trimp' | 'srpe' | 'estimate';
 
 export interface ActivityLoad {
 	load: number;
@@ -41,6 +43,17 @@ const SPORT_FACTOR: Record<string, number> = {
 	Workout: 1.0,
 	Crossfit: 1.4,
 	Hike: 0.9,
+	Snowboard: 0.9,
+	AlpineSki: 1.0,
+	NordicSki: 1.5,
+	BackcountrySki: 1.4,
+	Rowing: 1.3,
+	Elliptical: 1.2,
+	Soccer: 1.4,
+	Squash: 1.4,
+	Badminton: 1.1,
+	Padel: 1.1,
+	Pickleball: 1.0,
 	Walk: 0.5,
 	Yoga: 0.4
 };
@@ -56,8 +69,19 @@ export function trimp(minutes: number, avgHr: number, hr: HrProfile): number {
 	return minutes * x * TRIMP_K * Math.exp(TRIMP_B * x);
 }
 
+/** Sports where heart rate misses most of the load, so a rated effort wins. */
+const RPE_FIRST = new Set(['WeightTraining', 'Workout', 'Crossfit', 'Yoga']);
+/**
+ * Session-RPE (effort × minutes) scaled onto the TRIMP range: an hour at
+ * RPE 3 (easy) ≈ 90, like an easy hour of running.
+ */
+export const SRPE_SCALE = 0.5;
+
 export function activityLoad(a: LoadInput, hr: HrProfile | null): ActivityLoad {
 	const minutes = a.movingTime / 60;
+	if (a.rpe && RPE_FIRST.has(a.sportType)) {
+		return { load: a.rpe * minutes * SRPE_SCALE, method: 'srpe' };
+	}
 	if (a.avgHr && hr && hr.maxHr > hr.restHr) {
 		return { load: trimp(minutes, a.avgHr, hr), method: 'trimp' };
 	}

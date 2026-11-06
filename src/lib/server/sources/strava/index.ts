@@ -1,22 +1,29 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET } from '$app/env/private';
 import { db } from '../../db';
-import { activity, athlete, stravaToken, syncState } from '../../db/schema';
+import { activity, athlete, bestEffort, stravaToken, syncState } from '../../db/schema';
 import type { DataSource, SyncResult } from '../types';
 import {
 	exchangeToken,
 	stravaGet,
 	StravaRateLimitError,
 	type StravaAthlete,
+	type StravaDetailedActivity,
 	type StravaSummaryActivity,
 	type StravaTokenResponse,
 	type StravaZones
 } from './api';
-import { mapStravaActivity } from './mapper';
+import { isPlausibleActivity, mapStravaActivity, mapStravaDetail } from './mapper';
 
 const PAGE_SIZE = 200;
 /** Re-read the last few days every sync to pick up edits and late uploads. */
 const OVERLAP_SECONDS = 3 * 24 * 3600;
+/**
+ * Max detail requests (splits, laps, best efforts) per sync run. With hourly
+ * syncs this stays under Strava's 1,000 reads/day; history fills in newest first.
+ */
+const DETAIL_BUDGET = 40;
+export const DETAIL_SPORTS = ['Run', 'TrailRun', 'VirtualRun'];
 
 export function saveTokens(athleteId: number, t: StravaTokenResponse, scope: string) {
 	const values = {
@@ -109,6 +116,8 @@ export const strava: DataSource = {
 
 				db.transaction((tx) => {
 					for (const a of batch) {
+						cursor = Math.max(cursor, Math.floor(Date.parse(a.start_date) / 1000));
+						if (!isPlausibleActivity(a)) continue;
 						const row = mapStravaActivity(a, athleteId);
 						const { id: _id, createdAt: _c, ...update } = row;
 						tx.insert(activity)
@@ -118,7 +127,6 @@ export const strava: DataSource = {
 								set: { ...update, updatedAt: new Date() }
 							})
 							.run();
-						cursor = Math.max(cursor, Math.floor(Date.parse(a.start_date) / 1000));
 					}
 				});
 				upserted += batch.length;
@@ -127,10 +135,23 @@ export const strava: DataSource = {
 			}
 
 			db.update(syncState)
-				.set({ cursor, backfillComplete: true, lastSyncAt: new Date(), lastError: null })
+				.set({ cursor, backfillComplete: true })
 				.where(eq(syncState.athleteId, athleteId))
 				.run();
-			return { source: 'strava', upserted, partial: false };
+
+			const { fetched, remaining } = await fetchPendingDetails(athleteId, token, DETAIL_BUDGET);
+
+			db.update(syncState)
+				.set({ lastSyncAt: new Date(), lastError: null })
+				.where(eq(syncState.athleteId, athleteId))
+				.run();
+			return {
+				source: 'strava',
+				upserted,
+				partial: remaining > 0,
+				message:
+					fetched || remaining ? `${fetched} run details fetched, ${remaining} to go` : undefined
+			};
 		} catch (e) {
 			const message = e instanceof Error ? e.message : String(e);
 			db.update(syncState)
@@ -146,6 +167,75 @@ export const strava: DataSource = {
 		}
 	}
 };
+
+function pendingDetailsQuery(athleteId: number) {
+	return and(
+		eq(activity.athleteId, athleteId),
+		eq(activity.source, 'strava'),
+		inArray(activity.sportType, DETAIL_SPORTS),
+		isNull(activity.detailFetchedAt)
+	);
+}
+
+export function pendingDetailCount(athleteId: number): number {
+	return (
+		db
+			.select({ n: sql<number>`count(*)` })
+			.from(activity)
+			.where(pendingDetailsQuery(athleteId))
+			.get()?.n ?? 0
+	);
+}
+
+function saveDetail(activityId: string, athleteId: number, d: StravaDetailedActivity) {
+	const { splits, laps, bestEfforts } = mapStravaDetail(d);
+	db.transaction((tx) => {
+		tx.update(activity)
+			.set({ splits, laps, detailFetchedAt: new Date() })
+			.where(eq(activity.id, activityId))
+			.run();
+		tx.delete(bestEffort).where(eq(bestEffort.activityId, activityId)).run();
+		for (const e of bestEfforts) {
+			tx.insert(bestEffort)
+				.values({ ...e, activityId, athleteId })
+				.onConflictDoNothing()
+				.run();
+		}
+	});
+}
+
+async function fetchDetail(token: string, sourceId: string) {
+	return stravaGet<StravaDetailedActivity>(token, `/activities/${sourceId}`, {
+		include_all_efforts: 'false'
+	});
+}
+
+/** Fetch details for recent runs, newest first, stopping at the budget. */
+async function fetchPendingDetails(athleteId: number, token: string, budget: number) {
+	const pending = db
+		.select({ id: activity.id, sourceId: activity.sourceId })
+		.from(activity)
+		.where(pendingDetailsQuery(athleteId))
+		.orderBy(desc(activity.startDate))
+		.all();
+	let fetched = 0;
+	for (const row of pending.slice(0, budget)) {
+		saveDetail(row.id, athleteId, await fetchDetail(token, row.sourceId));
+		fetched++;
+	}
+	return { fetched, remaining: pending.length - fetched };
+}
+
+/** Fetch (or refresh) one activity's details on demand, e.g. from its detail page. */
+export async function fetchActivityDetail(athleteId: number, activityId: string) {
+	const row = db
+		.select({ sourceId: activity.sourceId })
+		.from(activity)
+		.where(and(eq(activity.id, activityId), eq(activity.athleteId, athleteId)))
+		.get();
+	if (!row) throw new Error('Activity not found');
+	saveDetail(activityId, athleteId, await fetchDetail(await accessToken(athleteId), row.sourceId));
+}
 
 export function activityCount(athleteId: number): number {
 	return (

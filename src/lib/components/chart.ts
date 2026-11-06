@@ -15,3 +15,25 @@ export function columnPath(x: number, y: number, w: number, h: number, r = 4): s
 	const rr = Math.min(r, w / 2, h);
 	return `M${x},${y + h}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h}Z`;
 }
+
+export interface ColumnItem {
+	key: string;
+	/** x-axis label */
+	label: string;
+	value: number;
+	/** tooltip lines: first is the heading */
+	tooltip: string[];
+}
+
+export interface Series {
+	key: string;
+	label: string;
+	color: string;
+}
+
+export interface StackItem {
+	key: string;
+	label: string;
+	heading: string;
+	values: Record<string, number>;
+}

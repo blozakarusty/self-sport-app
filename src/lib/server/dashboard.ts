@@ -69,6 +69,7 @@ export function getDashboard(a: Athlete) {
 			sportType: activity.sportType,
 			movingTime: activity.movingTime,
 			avgHr: activity.avgHr,
+			rpe: activity.rpe,
 			distance: activity.distance,
 			elevationGain: activity.elevationGain
 		})

@@ -40,6 +40,28 @@ export interface StravaSummaryActivity {
 	[key: string]: unknown;
 }
 
+interface StravaSplitLike {
+	distance: number;
+	elapsed_time: number;
+	moving_time: number;
+	elevation_difference?: number | null;
+	total_elevation_gain?: number | null;
+	average_heartrate?: number | null;
+}
+
+export interface StravaDetailedActivity extends StravaSummaryActivity {
+	splits_metric?: StravaSplitLike[];
+	laps?: (StravaSplitLike & { name: string })[];
+	best_efforts?: {
+		id: number;
+		name: string;
+		distance: number;
+		elapsed_time: number;
+		moving_time: number;
+		start_date_local: string;
+	}[];
+}
+
 const BASE = 'https://www.strava.com';
 
 export class StravaRateLimitError extends Error {

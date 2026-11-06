@@ -3,8 +3,19 @@
 A lean, self-hosted, single-user training app: reads your Strava data, tracks fitness and fatigue,
 and will build adaptive running + strength plans. Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-**Status:** milestone 1, which covers Strava login, activity sync, the activity list, daily training
-load (fitness / fatigue / form, acute:chronic ratio) and weekly running volume.
+**Status:** milestones 1–3.
+
+- **Today:** fitness / fatigue / form, acute:chronic ratio, weekly running volume, running fitness summary
+- **Activities:** list plus a detail page with splits, laps and best efforts
+- **Performance:** VDOT estimate, Daniels training paces (overridable), race predictions, pace at easy HR
+  trend, personal records by year, manually entered race results
+- **Insights:** hours per month by sport, running intensity mix, longest run per week, load by sport
+- **Goals:** a race goal (distance, date, target time) with the VDOT it needs, a progress bar against an
+  "expected by now" path, readiness bars (weekly volume, longest road run, km at goal pace) and macro
+  phases (base → build → peak → taper) with running and strength focus per phase
+- **Strength:** tag Strava strength sessions as push / pull / legs with an effort score (session RPE turns
+  into training load); benchmarks such as strict pull-ups (target 10), push-ups, KB swings, pistols,
+  plank and body weight, with suggested targets and re-tests at the end of each phase
 
 ## Setup
 
@@ -66,6 +77,16 @@ src/routes/      / (today), /activities, /settings, /auth/*
   fitness − fatigue.
 - The acute:chronic bands (0.8–1.3 "usual") are a common heuristic, not a validated injury
   predictor.
+
+Run details (splits, laps, best efforts) are fetched 40 runs per sync, newest first, to stay inside
+Strava's daily rate limit; a long history takes a few hours of hourly syncs to fill in.
+
+**VDOT** is the best effort ≥ 1.5 km in the last 120 days (best efforts within runs, plus results you
+enter), minus 0.5 points per 30 days of age. Training runs are usually submaximal, so without a recent
+race it tends to underestimate fitness; enter a race or time trial on the Performance page to correct it.
+
+**Intensity mix** classifies runs by average HR (zone 1–2 easy, zone 3 moderate, above hard); on road runs
+with laps, any lap at threshold pace or faster counts as hard.
 
 Known gaps: activities deleted on Strava stay here, because there's no webhook yet. Edits are only
 picked up if the activity is less than 3 days older than your latest one.

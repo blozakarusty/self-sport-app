@@ -2,12 +2,32 @@ import { fail } from '@sveltejs/kit';
 import { getDashboard } from '#lib/server/dashboard.ts';
 import { syncAthlete } from '#lib/server/jobs/sync.ts';
 import { activityCount } from '#lib/server/sources/strava/index.ts';
+import { currentVdot } from '#lib/server/performance.ts';
+import { getGoalView } from '#lib/server/goals.ts';
+import { strengthThisWeek } from '#lib/server/strength.ts';
 import type { Actions, PageServerLoad } from './$types';
+
+function summarizeGoal(v: ReturnType<typeof getGoalView>) {
+	if (!v) return null;
+	return {
+		name: v.goal.name,
+		date: v.goal.date,
+		targetTime: v.goal.targetTime,
+		daysToGo: v.daysToGo,
+		week: v.week,
+		totalWeeks: v.totalWeeks,
+		phase: v.current && { label: v.current.label, strengthPerWeek: v.current.strengthPerWeek },
+		fitness: v.fitness
+	};
+}
 
 export const load: PageServerLoad = ({ locals, url }) => {
 	if (!locals.athlete) {
 		return {
 			dashboard: null,
+			vdot: null,
+			goal: null,
+			strengthWeek: null,
 			authError: url.searchParams.get('auth'),
 			missingScopes: url.searchParams.get('missing')
 		};
@@ -15,6 +35,9 @@ export const load: PageServerLoad = ({ locals, url }) => {
 	return {
 		dashboard: getDashboard(locals.athlete),
 		activityCount: activityCount(locals.athlete.id),
+		vdot: currentVdot(locals.athlete),
+		goal: summarizeGoal(getGoalView(locals.athlete)),
+		strengthWeek: strengthThisWeek(locals.athlete),
 		authError: null,
 		missingScopes: null
 	};

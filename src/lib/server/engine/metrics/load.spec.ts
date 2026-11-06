@@ -148,3 +148,26 @@ describe('weekly volume', () => {
 		expect(cur.hoursBySport).toEqual({ Run: 0.5, TrailRun: 1, Tennis: 1 });
 	});
 });
+
+describe('session RPE for strength', () => {
+	const lift = {
+		startDateLocal: '2026-10-28T11:45:00',
+		sportType: 'WeightTraining',
+		movingTime: 3600,
+		avgHr: 105
+	};
+
+	it('uses effort × minutes when a strength session is rated', () => {
+		expect(activityLoad({ ...lift, rpe: 7 }, hr)).toEqual({ load: 210, method: 'srpe' });
+	});
+
+	it('weighs a hard lifting hour well above its heart-rate TRIMP', () => {
+		expect(activityLoad({ ...lift, rpe: 7 }, hr).load).toBeGreaterThan(
+			activityLoad(lift, hr).load * 3
+		);
+	});
+
+	it('ignores RPE on runs, where heart rate is reliable', () => {
+		expect(activityLoad({ ...lift, sportType: 'Run', rpe: 7 }, hr).method).toBe('trimp');
+	});
+});

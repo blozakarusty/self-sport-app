@@ -8,7 +8,11 @@
 
 	const nav = [
 		{ href: '/', label: 'Today' },
+		{ href: '/goals', label: 'Goals' },
+		{ href: '/strength', label: 'Strength' },
 		{ href: '/activities', label: 'Activities' },
+		{ href: '/performance', label: 'Performance' },
+		{ href: '/insights', label: 'Insights' },
 		{ href: '/settings', label: 'Settings' }
 	];
 </script>
@@ -24,8 +28,13 @@
 	{#if data.athlete}
 		<nav>
 			{#each nav as item (item.href)}
-				<a href={item.href} aria-current={page.url.pathname === item.href ? 'page' : undefined}
-					>{item.label}</a
+				<a
+					href={item.href}
+					aria-current={(
+						item.href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(item.href)
+					)
+						? 'page'
+						: undefined}>{item.label}</a
 				>
 			{/each}
 		</nav>
@@ -58,6 +67,21 @@
 		display: flex;
 		gap: 0.25rem;
 		flex: 1;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	nav a {
+		white-space: nowrap;
+	}
+	form {
+		margin-left: auto;
+	}
+	@media (max-width: 640px) {
+		nav {
+			order: 3;
+			flex-basis: 100%;
+			margin: 0 -0.6rem;
+		}
 	}
 	nav a {
 		color: var(--ink-2);
@@ -71,7 +95,8 @@
 		font-weight: 600;
 	}
 	form {
-		margin: 0;
+		margin-top: 0;
+		margin-bottom: 0;
 	}
 	main {
 		max-width: 960px;

@@ -50,9 +50,7 @@
 						<span class="muted small">{timeOfDay(a.startDateLocal)}</span></td
 					>
 					<td class="name">
-						<a href="https://www.strava.com/activities/{a.sourceId}" target="_blank" rel="noopener"
-							>{a.name}</a
-						>
+						<a href="/activities/{encodeURIComponent(a.id)}">{a.name}</a>
 						<div class="small muted">{a.sportType}</div>
 					</td>
 					<td class="num">{a.distance > 0 ? `${km(a.distance, 2)} km` : '–'}</td>

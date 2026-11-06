@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '#lib/server/db/index.ts';
 import { athlete } from '#lib/server/db/schema.ts';
 import { hrProfile } from '#lib/server/dashboard.ts';
+import { defaultRefHr } from '#lib/server/engine/performance/aerobic.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals }) => {
@@ -12,6 +13,8 @@ export const load: PageServerLoad = ({ locals }) => {
 		maxHr: a.maxHr,
 		restHr: a.restHr,
 		hr: hrProfile(a),
+		refHr: a.refHr,
+		defaultRefHr: defaultRefHr(a.hrZones ?? null, hrProfile(a)?.maxHr ?? null),
 		hrZones: a.hrZones,
 		weightKg: a.weightKg,
 		units: a.units
@@ -35,12 +38,14 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const maxHr = parseHr(form.get('maxHr'), 120, 230);
 		const restHr = parseHr(form.get('restHr'), 30, 100);
-		if (maxHr === 'invalid' || restHr === 'invalid') {
+		const refHr = parseHr(form.get('refHr'), 90, 200);
+		if (maxHr === 'invalid' || restHr === 'invalid' || refHr === 'invalid') {
 			return fail(400, {
-				error: 'Max HR must be 120–230 and rest HR 30–100 (whole numbers), or empty.'
+				error:
+					'Max HR must be 120–230, rest HR 30–100 and reference HR 90–200 (whole numbers), or empty.'
 			});
 		}
-		db.update(athlete).set({ maxHr, restHr }).where(eq(athlete.id, locals.athlete.id)).run();
+		db.update(athlete).set({ maxHr, restHr, refHr }).where(eq(athlete.id, locals.athlete.id)).run();
 		return { saved: true };
 	}
 };

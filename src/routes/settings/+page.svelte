@@ -34,8 +34,22 @@
 				placeholder={String(data.hr?.restHr ?? 55)}
 			/>
 		</label>
+		<label>
+			Reference HR
+			<input
+				name="refHr"
+				type="number"
+				inputmode="numeric"
+				value={data.refHr ?? ''}
+				placeholder={String(data.defaultRefHr ?? '')}
+			/>
+		</label>
 		<button>Save</button>
 	</form>
+	<p class="small muted">
+		Reference HR is used for the “pace at easy heart rate” trend on the Performance page. Default:
+		middle of your zone 2.
+	</p>
 	{#if form?.error}<p class="small error">{form.error}</p>{/if}
 	{#if form?.saved}<p class="small secondary">Saved.</p>{/if}
 

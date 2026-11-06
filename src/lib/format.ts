@@ -57,3 +57,55 @@ export function relativeTime(iso: string | null): string {
 }
 
 export const PACE_SPORTS = new Set(['Run', 'TrailRun', 'VirtualRun', 'Walk', 'Hike']);
+
+/** Seconds per km → "4:15" */
+export function paceStr(secPerKm: number): string {
+	let m = Math.floor(secPerKm / 60);
+	let s = Math.round(secPerKm - m * 60);
+	if (s === 60) {
+		m++;
+		s = 0;
+	}
+	return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Race time: "19:58", "1:32:10", "12:04:00" */
+export function raceTime(seconds: number): string {
+	return duration(Math.round(seconds));
+}
+
+export function monthLabel(yyyyMm: string): string {
+	return new Intl.DateTimeFormat('en-GB', { month: 'short', timeZone: 'UTC' }).format(
+		new Date(`${yyyyMm}-01T00:00:00Z`)
+	);
+}
+
+export function monthYearLabel(yyyyMm: string): string {
+	return new Intl.DateTimeFormat('en-GB', {
+		month: 'long',
+		year: 'numeric',
+		timeZone: 'UTC'
+	}).format(new Date(`${yyyyMm}-01T00:00:00Z`));
+}
+
+/** Strava best-effort names (case varies: "5K" but "50k") in distance order, with labels. */
+export const EFFORT_NAMES: { key: string; label: string }[] = [
+	{ key: '400m', label: '400 m' },
+	{ key: '1/2 mile', label: '½ mile' },
+	{ key: '1k', label: '1K' },
+	{ key: '1 mile', label: 'Mile' },
+	{ key: '2 mile', label: '2 miles' },
+	{ key: '5k', label: '5K' },
+	{ key: '10k', label: '10K' },
+	{ key: '15k', label: '15K' },
+	{ key: '10 mile', label: '10 miles' },
+	{ key: '20k', label: '20K' },
+	{ key: 'half-marathon', label: 'Half marathon' },
+	{ key: '30k', label: '30K' },
+	{ key: 'marathon', label: 'Marathon' },
+	{ key: '50k', label: '50K' }
+];
+
+export function effortLabel(name: string): string {
+	return EFFORT_NAMES.find((n) => n.key === name.toLowerCase())?.label ?? name;
+}

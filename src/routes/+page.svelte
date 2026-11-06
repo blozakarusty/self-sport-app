@@ -2,8 +2,9 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import FitnessChart from '#lib/components/FitnessChart.svelte';
-	import WeeklyVolumeChart from '#lib/components/WeeklyVolumeChart.svelte';
-	import { dayLabel, relativeTime } from '#lib/format.ts';
+	import ColumnChart from '#lib/components/ColumnChart.svelte';
+	import ProgressBar from '#lib/components/ProgressBar.svelte';
+	import { dayLabel, paceStr, raceTime, relativeTime, shortDay } from '#lib/format.ts';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
@@ -58,7 +59,13 @@
 				{data.activityCount} activities · synced {relativeTime(d.sync?.lastSyncAt ?? null)}
 				{#if d.sync && !d.sync.backfillComplete}· importing history…{/if}
 			</p>
-			{#if d.sync?.lastError}<p class="small notice">Last sync: {d.sync.lastError}</p>{/if}
+			{#if d.sync?.lastError?.includes('rate limit')}
+				<p class="small muted">
+					Paused at Strava's rate limit; the import resumes on the next sync.
+				</p>
+			{:else if d.sync?.lastError}
+				<p class="small notice">Last sync: {d.sync.lastError}</p>
+			{/if}
 			{#if form?.error}<p class="small notice">{form.error}</p>{/if}
 		</div>
 		<form
@@ -110,6 +117,72 @@
 		</div>
 	</section>
 
+	{#if data.goal}
+		{@const g = data.goal}
+		<a class="card goal" href="/goals">
+			<div class="goal-row">
+				<span
+					><strong>{g.name}</strong>
+					<span class="secondary">· goal {raceTime(g.targetTime)} · {dayLabel(g.date)}</span></span
+				>
+				<span class="small secondary">
+					{Math.floor(g.daysToGo / 7)} weeks to go{#if g.phase}
+						· {g.phase.label} phase, week {g.week} of {g.totalWeeks}{/if}
+				</span>
+			</div>
+			{#if g.fitness.start != null}
+				<ProgressBar
+					min={Math.min(g.fitness.start, g.fitness.current ?? g.fitness.start)}
+					max={g.fitness.target}
+					value={g.fitness.current}
+					expected={g.fitness.expected}
+					label="Running fitness toward goal"
+				/>
+				<div class="goal-row small muted">
+					<span>VDOT {g.fitness.current?.toFixed(1) ?? '–'} of {g.fitness.target.toFixed(1)}</span>
+					<span>
+						{#if g.fitness.status === 'behind'}Behind the path{:else if g.fitness.status === 'ahead'}Ahead
+							of the path{:else if g.fitness.status}On track{/if}
+						· Goals →
+					</span>
+				</div>
+			{/if}
+		</a>
+	{:else}
+		<a class="card running" href="/goals"
+			><span class="secondary">No race goal yet.</span><span class="go">Set a goal →</span></a
+		>
+	{/if}
+
+	{#if data.strengthWeek}
+		{@const w = data.strengthWeek}
+		<a class="card running" href="/strength">
+			<span class="secondary">Strength this week</span>
+			{#each ['push', 'pull', 'legs'] as k (k)}
+				{@const n = w[k as 'push' | 'pull' | 'legs']}
+				<span class:done={n > 0} class="ppl"
+					>{n > 0 ? '✓' : '○'} {k[0].toUpperCase() + k.slice(1)}</span
+				>
+			{/each}
+			{#if w.untagged}<span class="small muted">{w.untagged} untagged</span>{/if}
+			<span class="go">Strength →</span>
+		</a>
+	{/if}
+
+	<a class="card running" href="/performance">
+		{#if data.vdot}
+			<span
+				><span class="secondary">Running fitness</span>
+				<strong>VDOT {data.vdot.value.toFixed(1)}</strong></span
+			>
+			<span class="secondary">5K ≈ {raceTime(data.vdot.fiveK)}</span>
+			<span class="secondary">Threshold {paceStr(data.vdot.threshold)} /km</span>
+		{:else}
+			<span class="secondary">Running fitness appears once run details are imported.</span>
+		{/if}
+		<span class="go">Performance →</span>
+	</a>
+
 	<section class="card">
 		<h2>Fitness &amp; fatigue</h2>
 		<p class="small muted">
@@ -123,7 +196,20 @@
 
 	<section class="card">
 		<h2>Running volume per week (km)</h2>
-		<WeeklyVolumeChart weeks={d.weeks} />
+		<ColumnChart
+			items={d.weeks.map((w) => ({
+				key: w.week,
+				label: shortDay(w.week),
+				value: w.runKm,
+				tooltip: [
+					`Week of ${shortDay(w.week)}`,
+					`${w.runKm.toFixed(1)} km`,
+					`${w.runCount} runs · ${Math.round(w.runElevation)} m climb`
+				]
+			}))}
+			label="Running kilometres per week, last {d.weeks.length} weeks"
+			tableHeaders={['Week', 'km']}
+		/>
 	</section>
 {/if}
 
@@ -179,6 +265,38 @@
 		color: #0b0b0b;
 		font-size: 11px;
 		font-weight: 700;
+	}
+	.running {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.25rem;
+		align-items: baseline;
+		color: var(--ink);
+		text-decoration: none;
+		margin-bottom: 1rem;
+	}
+	.goal {
+		display: block;
+		color: var(--ink);
+		text-decoration: none;
+		margin-bottom: 1rem;
+	}
+	.goal-row {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.25rem 1rem;
+		flex-wrap: wrap;
+	}
+	.ppl {
+		color: var(--muted);
+	}
+	.ppl.done {
+		color: var(--ink);
+	}
+	.running .go {
+		margin-left: auto;
+		color: var(--accent);
+		font-size: 0.9rem;
 	}
 	.notice {
 		color: var(--critical);
