@@ -16,6 +16,10 @@ export const variables = defineEnvVars({
 				.filter(Boolean)
 				.map(Number)
 	},
+	ANTHROPIC_API_KEY: {
+		description: 'Optional. Turns on the Claude coach in weekly reviews.',
+		schema: optional
+	},
 	SYNC_INTERVAL_MINUTES: {
 		description: 'How often to sync Strava in the background. 0 disables it. Default 60.',
 		schema: (value) => {

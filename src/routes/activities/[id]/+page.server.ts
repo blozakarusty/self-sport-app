@@ -6,6 +6,7 @@ import { hrProfile } from '#lib/server/dashboard.ts';
 import { activityLoad } from '#lib/server/engine/metrics/load.ts';
 import { classifyIntensity, zonesFromMaxHr } from '#lib/server/engine/metrics/insights.ts';
 import { fetchActivityDetail } from '#lib/server/sources/strava/index.ts';
+import { feedbackFor } from '#lib/server/feedback.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals, params }) => {
@@ -50,6 +51,7 @@ export const load: PageServerLoad = ({ locals, params }) => {
 		},
 		load,
 		loadMethod: method,
+		feedback: feedbackFor(a.id),
 		hr,
 		zone: zoneIndex >= 0 ? zoneIndex + 1 : null,
 		intensity: a.avgHr && zones ? classifyIntensity(a.avgHr, zones) : null,

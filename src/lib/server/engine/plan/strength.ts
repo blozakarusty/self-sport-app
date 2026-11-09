@@ -277,6 +277,21 @@ const UPPER: Partial<Record<PhaseName, Template>> = {
 	]
 };
 
+/** Base phase splits upper body into your push and pull days. */
+const PUSH_BASE: Template = [
+	ex('paralette-pushup', 4, '8–12', 'hypertrophy', 75),
+	ex('kb-press', 4, '6–8', 'strength', 120),
+	ex('pike-pushup', 3, '6–10', 'hypertrophy', 75),
+	ex('lsit', 4, '10–20 s', 'skill', 60),
+	ex('plank', 2, '45 s', 'endurance', 30)
+];
+const PULL_BASE: Template = [
+	ex('pullup-negative', 3, '3', 'strength', 120, '5-second lowering on every rep.'),
+	ex('kb-row', 4, '8–10', 'hypertrophy', 75),
+	ex('dead-hang', 3, 'max', 'endurance', 60),
+	ex('hollow-hold', 3, '20–30 s', 'endurance', 45)
+];
+
 function minutesFor(t: Template) {
 	return Math.round(t.reduce((m, e) => m + e.sets * (e.restSec + 40), 300) / 60 / 5) * 5;
 }
@@ -302,17 +317,31 @@ function withWeights(
  * use lighter bells. Returns null when the phase has no such session.
  */
 export function strengthSession(
-	type: 'legs' | 'upper',
+	type: 'legs' | 'upper' | 'push' | 'pull',
 	phase: PhaseName,
 	weights: Record<string, number>,
 	recovery: boolean,
 	test?: string[]
 ): { title: string; details: StrengthDetails } | null {
-	const t = (type === 'legs' ? LEGS : UPPER)[phase];
+	const t =
+		type === 'push'
+			? phase === 'base'
+				? PUSH_BASE
+				: undefined
+			: type === 'pull'
+				? phase === 'base'
+					? PULL_BASE
+					: undefined
+				: (type === 'legs' ? LEGS : UPPER)[phase];
 	if (!t) return null;
 	const exercises = withWeights(t, weights, recovery);
 	const focus = [...new Set(t.map((e) => e.focus))];
-	const label = type === 'legs' ? 'Legs and core' : 'Upper body: push and pull';
+	const label = {
+		legs: 'Legs and core',
+		upper: 'Upper body: push and pull',
+		push: 'Push',
+		pull: 'Pull'
+	}[type];
 	return {
 		title: `${label}${recovery ? ' (light week)' : ''}`,
 		details: { kind: 'strength', focus, minutes: minutesFor(t), exercises, test }

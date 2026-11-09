@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import FitnessChart from '#lib/components/FitnessChart.svelte';
+	import CoachChat from '#lib/components/CoachChat.svelte';
 	import ColumnChart from '#lib/components/ColumnChart.svelte';
 	import ProgressBar from '#lib/components/ProgressBar.svelte';
 	import SessionCard from '#lib/components/SessionCard.svelte';
@@ -141,6 +142,24 @@
 			{/each}
 		</section>
 	{/if}
+
+	{#if data.feedback.length}
+		<section class="card notes">
+			<h2>Coach feedback</h2>
+			{#each data.feedback as f (f.id)}
+				<div>
+					<a class="small" href="/activities/{encodeURIComponent(f.id)}"
+						>{dayLabel(f.startDateLocal)} · {f.sportType === 'WeightTraining'
+							? 'Strength'
+							: f.sportType}</a
+					>
+					<p class="small">{f.text}</p>
+				</div>
+			{/each}
+		</section>
+	{/if}
+
+	<CoachChat />
 
 	{#if data.goal}
 		{@const g = data.goal}
@@ -299,6 +318,15 @@
 		color: var(--ink);
 		text-decoration: none;
 		margin-bottom: 1rem;
+	}
+	.notes {
+		display: grid;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+	.notes h2,
+	.notes p {
+		margin: 0;
 	}
 	.plan-today {
 		display: grid;

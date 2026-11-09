@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import CoachChat from '#lib/components/CoachChat.svelte';
 	import SessionCard from '#lib/components/SessionCard.svelte';
 	import { dayLabel, shortDay } from '#lib/format.ts';
 	import type { PageProps } from './$types';
@@ -16,6 +17,12 @@
 		build: 'var(--series-2)',
 		peak: 'var(--series-3)',
 		taper: 'var(--series-4)'
+	};
+	const DECISIONS: Record<string, string> = {
+		progress: 'Keep going',
+		hold: 'Hold steady',
+		reduce: 'Lighter week',
+		recover: 'Recovery focus'
 	};
 	let maxKm = $derived(
 		data.season ? Math.max(...data.season.map((w) => Math.max(w.plannedKm, w.actualKm ?? 0))) : 1
@@ -68,6 +75,68 @@
 			{#each w.warnings as msg, i (i)}<p class="small">⚠ {msg}</p>{/each}
 		</section>
 	{/if}
+
+	<section class="card review">
+		<div class="review-head">
+			<h2>Weekly review</h2>
+			{#if data.revision}<span class="small muted"
+					>Week of {shortDay(data.revision.reviewedWeek)} · {data.revision.source === 'claude'
+						? 'Claude coach'
+						: 'rules'}</span
+				>{/if}
+		</div>
+		{#if data.revision}
+			{@const r = data.revision}
+			<p class="decision">
+				<strong>{DECISIONS[r.decision]}</strong>{#if r.undone}
+					<span class="small muted">(undone)</span>{/if}
+			</p>
+			<p class="small">{r.explanation}</p>
+			{#if r.tips.length}<ul class="small">
+					{#each r.tips as t, i (i)}<li>{t}</li>{/each}
+				</ul>{/if}
+			<p class="small muted">
+				{r.metrics.actualKm} of {r.metrics.plannedKm} km · {r.metrics.keyDone} of {r.metrics
+					.keyTotal} key sessions
+			</p>
+			{#if r.changes.length}
+				<details class="small">
+					<summary>{r.changes.length} sessions changed</summary>
+					<ul>
+						{#each r.changes as c, i (i)}<li>{c}</li>{/each}
+					</ul>
+				</details>
+			{/if}
+			<div class="review-actions">
+				{#if r.canUndo}
+					<form method="POST" action="?week={w.monday}&/undoReview" use:enhance={keep}>
+						<input type="hidden" name="id" value={r.id} />
+						<button class="small">Undo changes</button>
+					</form>
+				{/if}
+				{#if r.undone}
+					<form method="POST" action="?week={w.monday}&/review" use:enhance={keep}>
+						<button class="small">Review again</button>
+					</form>
+				{/if}
+			</div>
+		{:else}
+			<p class="small muted">
+				Each Monday the app compares last week with the plan and adjusts what's ahead. Nothing to
+				show yet.
+			</p>
+			<form method="POST" action="?week={w.monday}&/review" use:enhance={keep}>
+				<button class="small">Review last week now</button>
+			</form>
+		{/if}
+		{#if form?.reviewMessage}<p class="small secondary">{form.reviewMessage}</p>{/if}
+		{#if !data.coachEnabled}<p class="small muted">
+				Claude coach is off; the rules still adapt your plan. Add ANTHROPIC_API_KEY to .env to turn
+				it on.
+			</p>{/if}
+	</section>
+
+	<CoachChat />
 
 	<section class="days">
 		{#each w.days as d (d.date)}
@@ -208,6 +277,27 @@
 		padding: 0.05rem 0.45rem;
 		border-radius: 4px;
 		border: 1px solid var(--c);
+	}
+	.review p {
+		margin: 0.25rem 0;
+	}
+	.review ul {
+		margin: 0.25rem 0;
+		padding-left: 1.1rem;
+	}
+	.review-head {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.5rem;
+		align-items: baseline;
+	}
+	.review-head h2 {
+		margin: 0;
+	}
+	.review-actions {
+		display: flex;
+		gap: 0.4rem;
+		margin-top: 0.4rem;
 	}
 	.summary {
 		display: flex;

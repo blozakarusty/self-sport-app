@@ -4,6 +4,7 @@ import {
 	activity,
 	benchmark,
 	benchmarkResult,
+	planRevision,
 	planSession,
 	workingWeight,
 	type Athlete,
@@ -24,10 +25,11 @@ import {
 	DEFAULT_PREFS,
 	generatePlan,
 	planWeeks,
+	TESTS,
 	type SessionDetails
 } from './engine/plan/generate';
 import { weeklyTargets, type Step } from './engine/plan/runs';
-import { EXERCISES, FOCUS_INFO } from './engine/plan/strength';
+import { EXERCISES, FOCUS_INFO, strengthSession } from './engine/plan/strength';
 import { matchActivities, sessionStatus, summarizeWeek, type PlanItem } from './engine/plan/match';
 import { activeGoal } from './goals';
 import { paceTableFor } from './performance';
@@ -143,8 +145,62 @@ export function regeneratePlan(a: Athlete) {
 				.values({ ...s, athleteId: a.id, goalId: g.id })
 				.run();
 		}
+		// adjusted sessions are gone, so earlier reviews can no longer be undone
+		tx.update(planRevision).set({ before: null }).where(eq(planRevision.athleteId, a.id)).run();
 	});
 	return sessions.length;
+}
+
+/**
+ * Convert base-phase weeks of an already generated plan to push/legs/pull.
+ * In place, because regenerating would reset volume from recent mileage.
+ * Does nothing once no base-phase "upper" sessions remain ahead.
+ */
+export function convertBaseStrength(a: Athlete) {
+	const g = activeGoal(a.id);
+	if (!g) return 0;
+	const today = athleteToday(a.id);
+	const upper = sessionsBetween(a.id, today, g.date).filter(
+		(s) => s.type === 'upper' && s.phase === 'base'
+	);
+	if (!upper.length) return 0;
+	const weights = weightsFor(a.id);
+	const flags = new Map(
+		planWeeks(macroPhases(g.startDate, g.date, g.distance)).map((w) => [w.monday, w])
+	);
+	db.transaction((tx) => {
+		for (const s of upper) {
+			const monday = weekStart(s.date);
+			const w = flags.get(monday);
+			const session = (type: 'push' | 'pull') =>
+				strengthSession(type, 'base', weights, !!w?.recovery, w?.test ? TESTS[type] : undefined)!;
+			const pull = session('pull');
+			tx.update(planSession)
+				.set({ type: 'pull', title: pull.title, details: pull.details })
+				.where(eq(planSession.id, s.id))
+				.run();
+			const tuesday = addDays(monday, 1);
+			if (tuesday >= today) {
+				const push = session('push');
+				tx.insert(planSession)
+					.values({
+						athleteId: a.id,
+						goalId: g.id,
+						date: tuesday,
+						kind: 'strength',
+						type: 'push',
+						title: push.title,
+						optional: false,
+						key: false,
+						details: push.details,
+						phase: 'base',
+						week: s.week
+					})
+					.run();
+			}
+		}
+	});
+	return upper.length;
 }
 
 export function hasPlan(athleteId: number, goalId: number) {
@@ -230,7 +286,7 @@ function resolveDetails(d: SessionDetails, paces: ReturnType<typeof paceTableFor
 	return d;
 }
 
-function sessionsBetween(athleteId: number, from: string, to: string) {
+export function sessionsBetween(athleteId: number, from: string, to: string) {
 	return db
 		.select()
 		.from(planSession)
@@ -404,13 +460,23 @@ export function getSeason(a: Athlete) {
 		const w = weekStart(dayOf(r.startDateLocal));
 		actual.set(w, (actual.get(w) ?? 0) + r.distance / 1000);
 	}
+	// Show what is actually stored, including weekly adjustments; the targets
+	// are recomputed from recent volume and would drift from the real plan.
+	const stored = new Map<string, { km: number; long: number }>();
+	for (const r of sessionsBetween(a.id, g.startDate, g.date)) {
+		if (r.kind !== 'run' || r.optional) continue;
+		const w = weekStart(r.date);
+		const km = (r.details as { km: number }).km;
+		const e = stored.get(w) ?? { km: 0, long: 0 };
+		stored.set(w, { km: e.km + km, long: r.type === 'long' ? km : e.long });
+	}
 	return targets.map((t) => ({
 		week: t.week,
 		monday: t.monday,
 		phase: t.phase,
 		recovery: t.recovery,
-		plannedKm: t.km,
-		longKm: t.longKm,
+		plannedKm: stored.has(t.monday) ? Math.round(stored.get(t.monday)!.km) : t.km,
+		longKm: stored.has(t.monday) ? stored.get(t.monday)!.long : t.longKm,
 		actualKm: t.monday <= today ? Math.round((actual.get(t.monday) ?? 0) * 10) / 10 : null
 	}));
 }

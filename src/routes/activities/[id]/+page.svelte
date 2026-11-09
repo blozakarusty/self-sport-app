@@ -80,6 +80,13 @@
 	</div>
 </section>
 
+{#if data.feedback}
+	<section class="card">
+		<h2>Coach feedback</h2>
+		<p class="small">{data.feedback}</p>
+	</section>
+{/if}
+
 {#if !a.detailFetchedAt && a.source === 'strava'}
 	<section class="card">
 		<p class="small secondary">

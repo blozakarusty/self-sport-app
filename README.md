@@ -3,7 +3,7 @@
 A lean, self-hosted, single-user training app: reads your Strava data, tracks fitness and fatigue,
 and will build adaptive running + strength plans. Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-**Status:** milestones 1–4.
+**Status:** milestones 1–5.
 
 - **Today:** fitness / fatigue / form, acute:chronic ratio, weekly running volume, running fitness summary
 - **Activities:** list plus a detail page with splits, laps and best efforts
@@ -16,6 +16,16 @@ and will build adaptive running + strength plans. Design: [docs/ARCHITECTURE.md]
   with sets × rep ranges, your kettlebells and a focus tag per exercise; grease-the-groove pull-ups on
   weekdays. Strava activities are matched to sessions; move or skip sessions with rule warnings; season
   overview of planned vs actual km
+- **Weekly review:** each Monday, last week is compared with the plan and the next weeks adapt: missed
+  key sessions repeat, short weeks and load spikes lighten what's ahead, the taper is never touched, and
+  every review can be undone. Set `ANTHROPIC_API_KEY` to add the optional Claude coach, which explains the
+  week and can fine-tune volume within limits; a weekly numeric summary (no activity names or GPS) is sent
+  to Anthropic
+- **Coach chat:** ask about your plan on Today or Plan, or ask for a change. Claude looks up your real
+  sessions and proposes changes that the planner validates; nothing changes until you click Apply, and
+  applied changes can be undone. Needs `ANTHROPIC_API_KEY`; plan and training summaries are sent to Anthropic
+- **Session feedback:** after each sync, a short coach note on new sessions from the last 3 days (at most
+  3 per sync), on Today and the activity page. Needs `ANTHROPIC_API_KEY`
 - **Goals:** a race goal (distance, date, target time) with the VDOT it needs, a progress bar against an
   "expected by now" path, readiness bars (weekly volume, longest road run, km at goal pace) and macro
   phases (base → build → peak → taper) with running and strength focus per phase

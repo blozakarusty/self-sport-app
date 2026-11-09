@@ -104,8 +104,9 @@ Everything you'd want to add goes behind a small interface, so new features are 
 2. ✅ Pace zones / VDOT, insights dashboards (run details sync, Performance + Insights + activity detail pages)
 3. ✅ Goals + strength: race goal with fitness gap, readiness and macro phases; push/pull/legs tagging with session-RPE load; strength and muscular-endurance benchmarks (kettlebell, bodyweight, paralettes)
 4. ✅ Planner: week-by-week runs (progression ladders, flat-terrain friendly), push/pull/legs strength with rep ranges and focus, grease-the-groove pull-ups, plan vs actual matching, week and season views
-5. Weekly adaptation + Claude coach layer
-6. Garmin FIT export
+5. ✅ Coach chat: answers from your real plan and proposes validated changes you apply or undo
+6. ✅ Weekly review: rules adapt the coming weeks (undoable), optional Claude coach explains and fine-tunes within limits
+7. Garmin FIT export
 
 ## Open questions (for the next round)
 

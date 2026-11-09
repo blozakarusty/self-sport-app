@@ -237,6 +237,78 @@ export const planSession = sqliteTable(
 	(t) => [index('plan_session_athlete_date_idx').on(t.athleteId, t.date)]
 );
 
+/** One weekly review: what was decided, why, and how to undo it. */
+export const planRevision = sqliteTable(
+	'plan_revision',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		athleteId: integer('athlete_id')
+			.notNull()
+			.references(() => athlete.id, { onDelete: 'cascade' }),
+		goalId: integer('goal_id')
+			.notNull()
+			.references(() => goal.id, { onDelete: 'cascade' }),
+		/** Monday of the week that was reviewed */
+		reviewedWeek: text('reviewed_week').notNull(),
+		decision: text('decision').notNull(),
+		factor: real('factor').notNull(),
+		reasons: text('reasons', { mode: 'json' }).notNull().$type<string[]>(),
+		metrics: text('metrics', { mode: 'json' })
+			.notNull()
+			.$type<{ plannedKm: number; actualKm: number; keyDone: number; keyTotal: number }>(),
+		changes: text('changes', { mode: 'json' }).notNull().$type<string[]>(),
+		/** Sessions as they were; null once undone or after a plan rebuild */
+		before: text('before', { mode: 'json' }).$type<
+			{ id: number; title: string; details: unknown }[]
+		>(),
+		explanation: text('explanation').notNull(),
+		tips: text('tips', { mode: 'json' }).notNull().$type<string[]>(),
+		/** 'claude' | 'rules' */
+		source: text('source').notNull(),
+		undone: integer('undone', { mode: 'boolean' }).notNull().default(false),
+		...timestamps
+	},
+	(t) => [uniqueIndex('plan_revision_week_idx').on(t.athleteId, t.reviewedWeek)]
+);
+
+/** The coach's short note on one activity. Empty text means no note could be written. */
+export const activityFeedback = sqliteTable('activity_feedback', {
+	activityId: text('activity_id')
+		.primaryKey()
+		.references(() => activity.id, { onDelete: 'cascade' }),
+	athleteId: integer('athlete_id')
+		.notNull()
+		.references(() => athlete.id, { onDelete: 'cascade' }),
+	text: text('text').notNull(),
+	...timestamps
+});
+
+/** Coach chat. A message can carry a plan change you apply or decline. */
+export const chatMessage = sqliteTable(
+	'chat_message',
+	{
+		id: integer('id').primaryKey({ autoIncrement: true }),
+		athleteId: integer('athlete_id')
+			.notNull()
+			.references(() => athlete.id, { onDelete: 'cascade' }),
+		role: text('role', { enum: ['user', 'assistant'] }).notNull(),
+		content: text('content').notNull(),
+		proposal: text('proposal', { mode: 'json' }).$type<ChatProposal>(),
+		/** pending | applied | declined | undone | expired */
+		proposalStatus: text('proposal_status'),
+		before: text('before', { mode: 'json' }).$type<Record<string, unknown>[]>(),
+		...timestamps
+	},
+	(t) => [index('chat_message_athlete_idx').on(t.athleteId, t.id)]
+);
+
+export interface ChatProposal {
+	summary: string;
+	ops: unknown[];
+	changes: string[];
+	warnings: string[];
+}
+
 /** Your current working weight per strength exercise (kg). */
 export const workingWeight = sqliteTable(
 	'working_weight',

@@ -7,12 +7,14 @@ import { addDays } from '#lib/server/engine/metrics/load.ts';
 import { weekStart } from '#lib/server/engine/metrics/volume.ts';
 import { activeGoal } from '#lib/server/goals.ts';
 import {
+	convertBaseStrength,
 	getSeason,
 	getWeekWithWarnings,
 	hasPlan,
 	prefsFor,
 	regeneratePlan
 } from '#lib/server/plan.ts';
+import { coachEnabled, latestRevision, runWeeklyReview, undoRevision } from '#lib/server/adapt.ts';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = ({ locals, url }) => {
@@ -21,6 +23,7 @@ export const load: PageServerLoad = ({ locals, url }) => {
 	const g = activeGoal(a.id);
 	if (!g) return { goal: null };
 	if (!hasPlan(a.id, g.id)) regeneratePlan(a);
+	convertBaseStrength(a);
 
 	const today = athleteToday(a.id);
 	const requested = url.searchParams.get('week');
@@ -32,7 +35,9 @@ export const load: PageServerLoad = ({ locals, url }) => {
 		next: addDays(monday, 7),
 		week: getWeekWithWarnings(a, monday),
 		season: getSeason(a),
-		prefs: prefsFor(a)
+		prefs: prefsFor(a),
+		revision: latestRevision(a.id),
+		coachEnabled
 	};
 };
 
@@ -45,6 +50,22 @@ function ownSession(athleteId: number, id: number) {
 }
 
 export const actions: Actions = {
+	review: async ({ locals }) => {
+		if (!locals.athlete) return fail(401);
+		const id = await runWeeklyReview(locals.athlete, { force: true });
+		return id
+			? { reviewed: true }
+			: { reviewMessage: 'Nothing to review: last week is already reviewed or had no plan.' };
+	},
+
+	undoReview: async ({ locals, request }) => {
+		if (!locals.athlete) return fail(401);
+		const id = Number((await request.formData()).get('id'));
+		if (!undoRevision(locals.athlete.id, id))
+			return fail(400, { reviewMessage: 'This review can no longer be undone.' });
+		return { undone: true };
+	},
+
 	move: async ({ locals, request }) => {
 		if (!locals.athlete) return fail(401);
 		const form = await request.formData();

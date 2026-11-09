@@ -29,6 +29,27 @@
       "when": 1794000328298,
       "tag": "0003_plan",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794217982066,
+      "tag": "0004_plan_revisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794221583538,
+      "tag": "0005_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794227583636,
+      "tag": "0006_activity_feedback",
+      "breakpoints": true
     }
   ]
 }

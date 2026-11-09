@@ -86,7 +86,8 @@ describe('generated plan', () => {
 		expect(on(0, 'run')[0].type).toBe('long');
 		expect(on(2, 'leisure')[0].type).toBe('tennis');
 		expect(on(4, 'strength')[0].type).toBe('legs');
-		expect(on(6, 'strength')[0].type).toBe('upper');
+		expect(on(2, 'strength')[0].type).toBe('push');
+		expect(on(6, 'strength')[0].type).toBe('pull');
 	});
 
 	it('keeps legs at least 48 hours before every long run and quality session', () => {
@@ -114,7 +115,9 @@ describe('generated plan', () => {
 			prefs: { longRunDay: 'sat', optionalExtraRun: false }
 		}).sessions;
 		expect(sat.filter((s) => s.type === 'long').every((s) => dow(s.date) === 6)).toBe(true);
-		expect(sat.filter((s) => s.type === 'upper').every((s) => dow(s.date) === 0)).toBe(true);
+		expect(
+			sat.filter((s) => s.type === 'upper' || s.type === 'pull').every((s) => dow(s.date) === 0)
+		).toBe(true);
 	});
 
 	it('plans grease-the-groove on weekdays, not in race week', () => {
@@ -164,6 +167,13 @@ describe('strength', () => {
 		expect(light.details.exercises[0].kg).toBe(16);
 		expect(light.details.exercises[0].sets).toBe(normal.details.exercises[0].sets - 1);
 		expect(snapToBell(18)).toBe(16);
+	});
+
+	it('gives the base phase three strength sessions and later phases two', () => {
+		const count = (week: number) =>
+			sessions.filter((s) => s.week === week && s.kind === 'strength').length;
+		expect(count(3)).toBe(3);
+		expect(count(9)).toBe(2);
 	});
 
 	it('explains every focus and knows every exercise', () => {

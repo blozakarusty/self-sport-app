@@ -19,7 +19,7 @@ export const PHASE_INFO: Record<PhaseName, { label: string } & PhaseFocus> = {
 		label: 'Base',
 		run: 'Build aerobic volume with easy running and strides; long run grows gradually.',
 		strength:
-			'Main strength block: push / pull / legs, heavier and slower. Best time to chase pull-ups.',
+			'Main strength block: push Tuesday, legs Thursday, pull on the free weekend day, heavier and slower. Best time to chase pull-ups.',
 		strengthPerWeek: 3
 	},
 	build: {

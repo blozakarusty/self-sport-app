@@ -3,8 +3,8 @@
  * for every week from today to race day. Pure function; the result is stored.
  *
  * Default week (long run on Sunday):
- *   Mon easy run · Tue tennis (leisure) · Wed quality run · Thu legs + core
- *   Fri easy run · Sat upper body (+ optional easy run in build/peak) · Sun long run
+ *   Mon easy run · Tue tennis (leisure), push in base · Wed quality run · Thu legs + core
+ *   Fri easy run · Sat pull in base, upper body later (+ optional easy run) · Sun long run
  * With the long run on Saturday, Saturday and Sunday swap.
  * Grease-the-groove pull-ups run Monday to Friday.
  */
@@ -66,9 +66,11 @@ export interface PlanInput {
 }
 
 /** Benchmarks to re-test on the strength days of a test week. */
-const TESTS = {
+export const TESTS = {
 	legs: ['kb-swings-5min', 'pistol-squat'],
-	upper: ['pullups-max', 'pushups-max', 'plank']
+	upper: ['pullups-max', 'pushups-max', 'plank'],
+	push: ['pushups-max', 'plank'],
+	pull: ['pullups-max']
 };
 
 export function planWeeks(phases: Phase[]) {
@@ -206,7 +208,29 @@ export function generatePlan(input: PlanInput): {
 				key: false,
 				details: legs.details
 			});
-		if (t.phase !== 'taper' || firstTaperWeek) {
+		if (t.phase === 'base') {
+			for (const [type, offset] of [
+				['push', 1],
+				['pull', freeWeekendOffset]
+			] as const) {
+				const s = strengthSession(
+					type,
+					'base',
+					input.weights,
+					t.recovery,
+					w.test ? TESTS[type] : undefined
+				);
+				if (s)
+					add(offset, {
+						kind: 'strength',
+						type,
+						title: s.title,
+						optional: false,
+						key: false,
+						details: s.details
+					});
+			}
+		} else if (t.phase !== 'taper' || firstTaperWeek) {
 			const upper = strengthSession(
 				'upper',
 				t.phase,
